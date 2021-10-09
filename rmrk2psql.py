@@ -340,7 +340,7 @@ if __name__ == '__main__':
 
     dump_filename = args.dump_filename
     output_sql_filename = args.output_sql_filename
-    start_block = args.start_block
+    start_block = int(args.start_block)
     is_verbose = args.is_verbose
 
     print_v(f"Reading dump file: {dump_filename}", is_verbose)
