@@ -1,11 +1,11 @@
 #!/bin/bash
-cd /home/ubuntu
 pg_login="<your_pg_login>"
 pg_pass="<your_pg_password>"
 pg_db_name="rmrk"
 pg_host="localhost"
 pg_connect="postgresql://$pg_login:$pg_pass@$pg_host/$pg_db_name"
 home_dir="/home/ubuntu"
+cd $home_dir
 
 wget https://gateway.pinata.cloud/ipns/precon-lite.rmrk.link -O $home_dir/dump_vLite.dump
 wget https://gateway.pinata.cloud/ipns/precon-mkt.rmrk.app -O $home_dir/dump_v1.dump
