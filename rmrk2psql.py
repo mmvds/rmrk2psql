@@ -263,14 +263,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_parts_{version} ON base_parts_{ver
             bases_sql += f"(\'{base['id']}\',{base['block']},\'{base['symbol']}\',\'{base['type']}\',\'{base['issuer']}\',{max_base_block}),\n"
             total_bases += 1
             change_index = 0
-            for change in base['changes']:
+            for change in base.get('changes',[]):
                 base_changes_sql += f"(\'{base['id']}\',{change_index},\'{change['field']}\',\'{change['old']}\',\'{change['new']}\',\'{change['caller']}\',{change['block']},\'{change['opType']}\'),\n"
                 change_index += 1
                 total_changes += 1
-            for theme in base['themes']:
+            for theme in base.get('themes',[]):
                 base_themes_sql += f"(\'{base['id']}\',\'{theme}\',\'{json.dumps(base['themes'][theme])}\'),\n"
                 total_themes += 1
-            for part in base['parts']:
+            for part in base.get('parts',[]):
                 base_parts_sql += f"(\'{base['id']}\',\'{part['id']}\',\'{part.get('type','')}\',\'{part.get('src', '')}\',{part.get('z','null')},\'{json.dumps(part.get('equippable',[]))}\',{part.get('themable','null')}),\n"
                 total_parts += 1
 
