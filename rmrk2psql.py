@@ -68,12 +68,12 @@ CREATE TABLE IF NOT EXISTS nfts_{version} (id text primary key, block integer, c
 CREATE TABLE IF NOT EXISTS nfts_{version} (id text primary key, block integer, collection text, symbol text, priority jsonb, transferable integer, sn text, metadata text, owner text, rootowner text, forsale bigint, burned text, properties jsonb, pending text, updatedAtBlock integer);
 CREATE TABLE IF NOT EXISTS nft_resources_{version} (nft_id text, id text, pending boolean, src text, slot text, thumb text, theme jsonb, base text, parts jsonb, themeId text, metadata text);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_resource_{version} ON nft_resources_{version} (nft_id, id);
-CREATE TABLE IF NOT EXISTS nft_children_{version} (nft_id text, id text, child_index integer, pending boolean, equipped text);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{version} (nft_id, id, child_index);
+CREATE TABLE IF NOT EXISTS nft_children_{version} (nft_id text, id text, pending boolean, equipped text);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{version} (nft_id, id);
 '''
         nfts_sql = f"INSERT INTO nfts_{version} (id, block, collection, symbol, priority, transferable, sn, metadata, owner, rootowner, forsale, burned, properties, pending, updatedAtBlock) VALUES \n"
         nft_resources_sql = f"INSERT INTO nft_resources_{version} (nft_id, id, pending, src, slot, thumb, theme, base, parts, themeId, metadata) VALUES \n"
-        nft_children_sql = f"INSERT INTO nft_children_{version} (nft_id, id, child_index, pending, equipped) VALUES \n"
+        nft_children_sql = f"INSERT INTO nft_children_{version} (nft_id, id, pending, equipped) VALUES \n"
     nft_changes_sql = f"INSERT INTO nft_changes_{version} (nft_id, change_index, field, old, new, caller, block, opType) VALUES \n"
     nft_reactions_sql = f"INSERT INTO nft_reactions_{version} (nft_id, reaction, wallets) VALUES \n"
     print_v("Parsing NFTS:", is_verbose)
@@ -102,7 +102,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
                 nfts_sql += f"(\'{nft['id']}\',{nft['block']},\'{nft['collection']}\',\'{nft['symbol']}\',\'{json.dumps(nft['priority'])}\',{nft['transferable']},\'{nft['sn']}\',\'{nft.get('metadata', '')}\',\'{nft['owner']}\',\'{nft['rootowner']}\',{nft['forsale']},\'{nft['burned']}\',\'{json.dumps(nft['properties'])}\',\'{nft['pending']}\',{max_nft_block}),\n"
             total_nfts += 1
             change_index = 0
-            child_index = 0
             for change in nft['changes']:
                 nft_changes_sql += f"(\'{nft['id']}\',{change_index},\'{change['field']}\',\'{change['old']}\',\'{change['new']}\',\'{change['caller']}\',{change['block']},\'{change['opType']}\'),\n"
                 change_index += 1
@@ -115,8 +114,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
                     nft_resources_sql += f"(\'{nft['id']}\',\'{resource['id']}\',{resource.get('pending', False)},\'{resource.get('src','')}\',\'{resource.get('slot','')}\',\'{resource.get('thumb','')}\',\'{json.dumps(resource.get('theme',{}))}\',\'{resource.get('base','')}\',\'{json.dumps(resource.get('parts',[]))}\',\'{resource.get('themeId','')}\',\'{resource.get('metadata','')}\'),\n"
                     total_resources += 1
                 for child in nft['children']:
-                    nft_children_sql += f"(\'{nft['id']}\',\'{child['id']}\',{child_index},{child.get('pending', False)},\'{child['equipped']}\'),\n"
-                    child_index += 1
+                    nft_children_sql += f"(\'{nft['id']}\',\'{child['id']}\',{child.get('pending', False)},\'{child['equipped']}\'),\n"
                     total_children += 1
     if total_nfts == 0:
         nfts_sql = ""
@@ -144,7 +142,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
         nft_children_sql = ""
     else:
         nft_children_sql = nft_children_sql[:-2] + \
-            " ON CONFLICT (nft_id, id, child_index) DO UPDATE SET pending = excluded.pending, equipped = excluded.equipped;"
+            " ON CONFLICT (nft_id, id) DO UPDATE SET pending = excluded.pending, equipped = excluded.equipped;"
     if version != "v2":
         return '\n'.join([schema_sql, nfts_sql, nft_changes_sql, nft_reactions_sql])
     else:
