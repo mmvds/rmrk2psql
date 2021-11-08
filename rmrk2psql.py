@@ -113,9 +113,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
                 for resource in nft['resources']:
                     nft_resources_sql += f"(\'{nft['id']}\',\'{resource['id']}\',{resource.get('pending', False)},\'{resource.get('src','')}\',\'{resource.get('slot','')}\',\'{resource.get('thumb','')}\',\'{json.dumps(resource.get('theme',{}))}\',\'{resource.get('base','')}\',\'{json.dumps(resource.get('parts',[]))}\',\'{resource.get('themeId','')}\',\'{resource.get('metadata','')}\'),\n"
                     total_resources += 1
-                for child in nft['children']:
-                    nft_children_sql += f"(\'{nft['id']}\',\'{child['id']}\',{child.get('pending', False)},\'{child['equipped']}\'),\n"
-                    total_children += 1
+        if version == "v2":    
+            for child in nft['children']:
+                nft_children_sql += f"(\'{nft['id']}\',\'{child['id']}\',{child.get('pending', False)},\'{child['equipped']}\'),\n"
+                total_children += 1
     if total_nfts == 0:
         nfts_sql = ""
     else:
@@ -141,7 +142,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
     if total_children == 0:
         nft_children_sql = ""
     else:
-        nft_children_sql = nft_children_sql[:-2] + \
+        nft_children_sql = f"DELETE FROM nft_children_{version};" + nft_children_sql[:-2] + \
             " ON CONFLICT (nft_id, id) DO UPDATE SET pending = excluded.pending, equipped = excluded.equipped;"
     if version != "v2":
         return '\n'.join([schema_sql, nfts_sql, nft_changes_sql, nft_reactions_sql])
