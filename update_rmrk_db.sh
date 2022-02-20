@@ -7,9 +7,19 @@ pg_connect="postgresql://$pg_login:$pg_pass@$pg_host/$pg_db_name"
 home_dir="/home/ubuntu"
 cd $home_dir
 
-wget https://gateway.pinata.cloud/ipns/precon-lite.rmrk.link -O $home_dir/dump_vLite.dump
-wget https://gateway.pinata.cloud/ipns/precon-mkt.rmrk.app -O $home_dir/dump_v1.dump
-wget https://gateway.pinata.cloud/ipns/precon-rmrk2.rmrk.link -O $home_dir/dump_v2.dump
+ipfs_vLite=`dig precon-lite.rmrk.link TXT | grep ipfs | cut -f 2 -d '"' | cut -f 2 -d '='`
+url_vLite="http://cloudflare-ipfs.com/$ipfs_vLite"
+
+ipfs_v1=`dig precon-mkt.rmrk.app TXT | grep ipfs | cut -f 2 -d '"' | cut -f 2 -d '='`
+url_v1="http://cloudflare-ipfs.com/$ipfs_v1"
+
+ipfs_v2=`dig precon-rmrk2.rmrk.link TXT | grep ipfs | cut -f 2 -d '"' | cut -f 2 -d '='`
+url_v2="http://cloudflare-ipfs.com/$ipfs_v2"
+
+
+wget $url_vLite -O $home_dir/dump_vLite.dump
+wget $url_v1 -O $home_dir/dump_v1.dump
+wget $url_v2 -O $home_dir/dump_v2.dump
 
 last_block_vLite=`psql "$pg_connect" -t -c "select lastBlock from lastblock_vlite;" | tr -d ' ' | head -1`
 last_block_v1=`psql "$pg_connect" -t -c "select lastBlock from lastblock_v1;" | tr -d ' ' | head -1`
