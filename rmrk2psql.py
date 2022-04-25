@@ -1,9 +1,9 @@
 import json
 import argparse
 '''
-usage: rmrk2psql.py [-h] -i DUMP_FILENAME -o OUTPUT_SQL_FILENAME [-b START_BLOCK] [-v]
+usage: python3 ./rmrk2psql.py [-h] -i DUMP_FILENAME -o OUTPUT_SQL_FILENAME [-b START_BLOCK] [-v]
 
-How to run: python3 ./rmrk.py -i <dump_filename> -o <output_sql_filename> [-b] <start_block> [-v]
+How to run: python3 ./rmrk2psql.py -i <dump_filename> -o <output_sql_filename> [-b] <start_block> [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
