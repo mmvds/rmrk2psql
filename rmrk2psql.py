@@ -1,9 +1,9 @@
 import json
 import argparse
 '''
-usage: python3 ./rmrk2psql.py [-h] -i DUMP_FILENAME -o OUTPUT_SQL_FILENAME [-b START_BLOCK] [-v]
+usage: rmrk2psql.py [-h] -i DUMP_FILENAME -o OUTPUT_SQL_FILENAME [-b START_BLOCK] [-v]
 
-How to run: python3 ./rmrk2psql.py -i <dump_filename> -o <output_sql_filename> [-b] <start_block> [-v]
+How to run: python3 ./rmrk.py -i <dump_filename> -o <output_sql_filename> [-b] <start_block> [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -52,6 +52,7 @@ def load_data(filename):
 
 
 def parse_rmrk_nfts(data, start_block, version, is_verbose):
+    nft_resources_dict = {}
     schema_sql = f'''
 CREATE TABLE IF NOT EXISTS nft_changes_{version} (nft_id text, change_index integer, field text, old text, new text, caller text, block integer, opType text);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_change_{version} ON nft_changes_{version} (nft_id, change_index);
@@ -111,8 +112,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
                 total_reactions += 1
             if version == "v2":
                 for resource in nft['resources']:
-                    nft_resources_sql += f"(\'{nft['id']}\',\'{resource['id']}\',{resource.get('pending', False)},\'{resource.get('src','')}\',\'{resource.get('slot','')}\',\'{resource.get('thumb','')}\',\'{json.dumps(resource.get('theme',{}))}\',\'{resource.get('base','')}\',\'{json.dumps(resource.get('parts',[]))}\',\'{resource.get('themeId','')}\',\'{resource.get('metadata','')}\'),\n"
-                    total_resources += 1
+                    if (nft['id'],resource['id']) not in nft_resources_dict:
+                        nft_resources_sql += f"(\'{nft['id']}\',\'{resource['id']}\',{resource.get('pending', False)},\'{resource.get('src','')}\',\'{resource.get('slot','')}\',\'{resource.get('thumb','')}\',\'{json.dumps(resource.get('theme',{}))}\',\'{resource.get('base','')}\',\'{json.dumps(resource.get('parts',[]))}\',\'{resource.get('themeId','')}\',\'{resource.get('metadata','')}\'),\n"
+                        nft_resources_dict[(nft['id'],resource['id'])] = resource
+                        total_resources += 1
         if version == "v2":    
             for child in nft['children']:
                 nft_children_sql += f"(\'{nft['id']}\',\'{child['id']}\',{child.get('pending', False)},\'{child['equipped']}\'),\n"
@@ -232,6 +235,7 @@ def parse_rmrk_invalid(data, start_block, version, is_verbose):
 
 
 def parse_rmrk_bases(data, start_block, version, is_verbose):
+    base_parts_dict = {}
     schema_sql = f'''
 CREATE TABLE IF NOT EXISTS bases_{version} (id text primary key, block integer, symbol text, type text, issuer text, updatedAtBlock integer);
 CREATE TABLE IF NOT EXISTS base_changes_{version} (base_id text, change_index integer, field text, old text, new text, caller text, block integer, opType text);
@@ -270,8 +274,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_parts_{version} ON base_parts_{ver
                 base_themes_sql += f"(\'{base['id']}\',\'{theme}\',\'{json.dumps(base['themes'][theme])}\'),\n"
                 total_themes += 1
             for part in base.get('parts',[]):
-                base_parts_sql += f"(\'{base['id']}\',\'{part['id']}\',\'{part.get('type','')}\',\'{part.get('src', '')}\',{part.get('z','null')},\'{json.dumps(part.get('equippable',[]))}\',{part.get('themable','null')}),\n"
-                total_parts += 1
+                if (base['id'],part['id']) not in base_parts_dict:
+                        base_parts_sql += f"(\'{base['id']}\',\'{part['id']}\',\'{part.get('type','')}\',\'{part.get('src', '')}\',{part.get('z','null')},\'{json.dumps(part.get('equippable',[]))}\',{part.get('themable','null')}),\n"
+                        base_parts_dict[(base['id'],part['id'])] = part
+                        total_parts += 1
+                
 
     if total_bases == 0:
         bases_sql = ""
