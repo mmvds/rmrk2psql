@@ -247,6 +247,7 @@ def parse_rmrk_invalid(data, start_block, version, is_verbose):
 def parse_rmrk_bases(data, start_block, version, is_verbose):
     base_parts_dict = {}
     schema_sql = f'''
+CREATE TABLE IF NOT EXISTS base_info_{version} (base_id text primary key, info jsonb);
 CREATE TABLE IF NOT EXISTS bases_{version} (id text primary key, block integer, symbol text, type text, issuer text, updatedAtBlock integer);
 CREATE TABLE IF NOT EXISTS base_changes_{version} (base_id text, change_index integer, field text, old text, new text, caller text, block integer, opType text);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_changes_{version} ON base_changes_{version} (base_id, change_index);
@@ -259,6 +260,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_parts_{version} ON base_parts_{ver
     base_changes_sql = f"INSERT INTO base_changes_{version} (base_id, change_index, field, old, new, caller, block, opType) VALUES \n"
     base_themes_sql = f"INSERT INTO base_themes_{version} (base_id, theme_name, theme) VALUES \n"
     base_parts_sql = f"INSERT INTO base_parts_{version} (base_id, id, type, src, z, equippable, themable) VALUES \n"
+    base_info_sql = f"INSERT INTO base_info_{version} (base_id, info) VALUES \n"
 
     print_v("Parsing Bases", is_verbose)
     total_bases = 0
@@ -274,6 +276,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_parts_{version} ON base_parts_{ver
         max_base_block = max(max_base_block, base['block'])
         if max_base_block > start_block:
             bases_sql += f"(\'{base['id']}\',{base['block']},\'{base['symbol']}\',\'{base['type']}\',\'{base['issuer']}\',{max_base_block}),\n"
+            base_info_sql += f"(\'{base['id']}\',\'{json.dumps(base)}\'),\n"
             total_bases += 1
             change_index = 0
             for change in base.get('changes',[]):
@@ -292,7 +295,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_parts_{version} ON base_parts_{ver
 
     if total_bases == 0:
         bases_sql = ""
+        base_info_sql = ""
     else:
+        base_info_sql = base_info_sql[:-2] + " ON CONFLICT (base_id) DO UPDATE SET info = excluded.info;"
         bases_sql = bases_sql[:-2] + \
             " ON CONFLICT (id) DO UPDATE SET block = excluded.block, symbol = excluded.symbol, type = excluded.type, issuer = excluded.issuer, updatedAtBlock = excluded.updatedAtBlock;"
 
@@ -314,7 +319,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_base_id_parts_{version} ON base_parts_{ver
         base_parts_sql = base_parts_sql[:-2] + \
             " ON CONFLICT (base_id, id) DO UPDATE SET type = excluded.type, src = excluded.src, z = excluded.z, equippable = excluded.equippable, themable = excluded.themable;"
 
-    return '\n'.join([schema_sql, bases_sql, base_changes_sql, base_themes_sql, base_parts_sql])
+    return '\n'.join([schema_sql, bases_sql, base_changes_sql, base_themes_sql, base_parts_sql, base_info_sql])
 
 # last block updating
 #tables: lastBlock
