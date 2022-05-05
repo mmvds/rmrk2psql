@@ -54,6 +54,7 @@ def load_data(filename):
 def parse_rmrk_nfts(data, start_block, version, is_verbose):
     nft_resources_dict = {}
     schema_sql = f'''
+CREATE TABLE IF NOT EXISTS nft_info_{version} (nft_id text primary key, info jsonb);
 CREATE TABLE IF NOT EXISTS nft_changes_{version} (nft_id text, change_index integer, field text, old text, new text, caller text, block integer, opType text);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_change_{version} ON nft_changes_{version} (nft_id, change_index);
 CREATE TABLE IF NOT EXISTS nft_reactions_{version} (nft_id text, reaction text, wallets jsonb);
@@ -75,6 +76,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
         nfts_sql = f"INSERT INTO nfts_{version} (id, block, collection, symbol, priority, transferable, sn, metadata, owner, rootowner, forsale, burned, properties, pending, updatedAtBlock) VALUES \n"
         nft_resources_sql = f"INSERT INTO nft_resources_{version} (nft_id, id, pending, src, slot, thumb, theme, base, parts, themeId, metadata) VALUES \n"
         nft_children_sql = f"INSERT INTO nft_children_{version} (nft_id, id, pending, equipped) VALUES \n"
+    nft_info_sql = f"INSERT INTO nft_info_{version} (nft_id, info) VALUES \n"
     nft_changes_sql = f"INSERT INTO nft_changes_{version} (nft_id, change_index, field, old, new, caller, block, opType) VALUES \n"
     nft_reactions_sql = f"INSERT INTO nft_reactions_{version} (nft_id, reaction, wallets) VALUES \n"
     print_v("Parsing NFTS:", is_verbose)
@@ -101,6 +103,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
                 nfts_sql += f"(\'{nft['id']}\',{nft['block']},\'{nft['collection']}\',\'{nft['name']}\',\'{nft['instance']}\',{nft['transferable']},\'{nft['sn']}\',\'{nft.get('metadata', '')}\',\'{nft['owner']}\',{nft['forsale']},\'{nft['burned']}\',{max_nft_block}),\n"
             else:
                 nfts_sql += f"(\'{nft['id']}\',{nft['block']},\'{nft['collection']}\',\'{nft['symbol']}\',\'{json.dumps(nft['priority'])}\',{nft['transferable']},\'{nft['sn']}\',\'{nft.get('metadata', '')}\',\'{nft['owner']}\',\'{nft['rootowner']}\',{nft['forsale']},\'{nft['burned']}\',\'{json.dumps(nft['properties'])}\',\'{nft['pending']}\',{max_nft_block}),\n"
+            nft_info_sql += f"(\'{nft['id']}\',\'{json.dumps(nft)}\'),\n"
             total_nfts += 1
             change_index = 0
             for change in nft['changes']:
@@ -122,7 +125,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
                 total_children += 1
     if total_nfts == 0:
         nfts_sql = ""
+        nft_info_sql = ""
     else:
+        nft_info_sql = nft_info_sql[:-2] + " ON CONFLICT (nft_id) DO UPDATE SET info = excluded.info;"
         if version != "v2":
             nfts_sql = nfts_sql[:-2] + " ON CONFLICT (id) DO UPDATE SET block = excluded.block, collection = excluded.collection, name = excluded.name, instance = excluded.instance, transferable = excluded.transferable, sn = excluded.sn, metadata = excluded.metadata, owner = excluded.owner, forsale = excluded.forsale, burned = excluded.burned, updatedAtBlock = excluded.updatedAtBlock;"
         else:
@@ -148,9 +153,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
         nft_children_sql = f"DELETE FROM nft_children_{version};" + nft_children_sql[:-2] + \
             " ON CONFLICT (nft_id, id) DO UPDATE SET pending = excluded.pending, equipped = excluded.equipped;"
     if version != "v2":
-        return '\n'.join([schema_sql, nfts_sql, nft_changes_sql, nft_reactions_sql])
+        return '\n'.join([schema_sql, nfts_sql, nft_changes_sql, nft_reactions_sql, nft_info_sql])
     else:
-        return '\n'.join([schema_sql, nfts_sql, nft_changes_sql, nft_reactions_sql, nft_resources_sql, nft_children_sql])
+        return '\n'.join([schema_sql, nfts_sql, nft_changes_sql, nft_reactions_sql, nft_resources_sql, nft_children_sql, nft_info_sql])
 
 # collections parsing
 # tables: collections, collection_changes
@@ -158,6 +163,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_id_child_{version} ON nft_children_{ve
 
 def parse_rmrk_collections(data, start_block, version, is_verbose):
     schema_sql = f'''
+CREATE TABLE IF NOT EXISTS collection_info_{version} (collection_id text primary key, info jsonb);
 CREATE TABLE IF NOT EXISTS collection_changes_{version} (collection_id text, change_index integer, field text, old text, new text, caller text, block integer, opType text);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_id_changes_{version} ON collection_changes_{version} (collection_id, change_index);
 '''
@@ -168,7 +174,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_id_changes_{version} ON collect
         schema_sql += f"CREATE TABLE IF NOT EXISTS collections_{version} (id text primary key, block integer, max int, issuer text, symbol text, metadata text, updatedAtBlock text);\n"
         collections_sql = f"INSERT INTO collections_{version} (id, block, max, issuer, symbol, metadata, updatedAtBlock) VALUES \n"
     collection_changes_sql = f"INSERT INTO collection_changes_{version} (collection_id, change_index, field, old, new, caller, block, opType) VALUES \n"
-
+    collection_info_sql = f"INSERT INTO collection_info_{version} (collection_id, info) VALUES \n"
     print_v("Parsing Collections", is_verbose)
     total_changes = 0
     total_collections = 0
@@ -184,6 +190,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_id_changes_{version} ON collect
                 collections_sql += f"(\'{collection['id']}\',{collection['block']},\'{collection['name']}\',{collection['max']},\'{collection['issuer']}\',\'{collection['symbol']}\',\'{collection.get('metadata', '')}\',{max_collection_block}),\n"
             else:
                 collections_sql += f"(\'{collection['id']}\',{collection['block']},{collection['max']},\'{collection['issuer']}\',\'{collection['symbol']}\',\'{collection.get('metadata', '')}\',{max_collection_block}),\n"
+            collection_info_sql += f"(\'{collection['id']}\',\'{json.dumps(collection)}\'),\n"
             total_collections += 1
             change_index = 0
             for change in collection['changes']:
@@ -201,11 +208,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_id_changes_{version} ON collect
                 " ON CONFLICT (id) DO UPDATE SET block = excluded.block, max = excluded.max, issuer = excluded.issuer, symbol = excluded.symbol, metadata = excluded.metadata, updatedAtBlock = excluded.updatedAtBlock;"
     if total_changes == 0:
         collection_changes_sql = ""
+        collection_info_sql = ""
     else:
+        collection_info_sql = collection_info_sql[:-2] + " ON CONFLICT (collection_id) DO UPDATE SET info = excluded.info;"
+
         collection_changes_sql = collection_changes_sql[:-2] + \
             " ON CONFLICT (collection_id, change_index) DO UPDATE SET field = excluded.field, old = excluded.old, new = excluded.new, caller = excluded.caller, opType = excluded.opType;"
 
-    return '\n'.join([schema_sql, collections_sql, collection_changes_sql])
+    return '\n'.join([schema_sql, collections_sql, collection_changes_sql, collection_info_sql])
 
 # invalid messages parsing
 #tables: invalid
